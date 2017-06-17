@@ -1,22 +1,14 @@
-
 /*
-* MIDI to EDP-LINK interface
-* MIDI-channel 1
+* MIDI to EDP Link interface
+* MIDI channel 1
 *
 * RX: digital pin 0
-* GATE: digital pin 13
-* NOTE: digital pins 3 - 8
+* GATE: digital pin 13 (LED)
+* PITCH: digital pins 2 through 7
 *
-
-EDP Link uses 6 bits
-The lowest 4 bits contain note information
-The highest 2 bit contain octave information
-
-Examples:
-
-B 0001 0001 is note 1 in octave 1
-B 0010 0011 is note 3 in octave 2
-
+* EDP Link uses 6 bits
+* The lowest 4 bits contain note information (pins 2 through 5)
+* The highest 2 bit contain octave information (pins 6 and 7)
 */
 
 # define BAUDRATE 31250
@@ -32,16 +24,18 @@ byte note = 0;
 byte velocity = 0;
 
 void openGate() {
-  // set digital pin 13 (LED) HIGH
+  // set the gate pin HIGH
   PORTB = B11111111;
 }
 
 void closeGate() {
-  // set digital pin 13 (LED) LOW
+  // set the gate pin LOW
   PORTB = B00000000;
 }
 
 void setNote(byte data) {
+  // strangely enough we need to count down ...
+  // could be a wrong implementation in my Wasp clone (Jasper)
   byte octave = 2 - (data / 12) << 4;
   byte note = 11 - (data % 12);
 
@@ -51,8 +45,7 @@ void setNote(byte data) {
 void setup() {
   Serial.begin(BAUDRATE);
 
-  // Set digital pins 2 - 13 to WRITE
-  // and leave 0 and 1 (rx/tx) alone
+  // set digital pins 1 through 13 to WRITE
   DDRD = B11111110;
   DDRB = B11111111;
 
@@ -62,6 +55,7 @@ void setup() {
 }
 
 void loop() {
+  // check for incoming byte
   if (Serial.available() > 0) {
     byte incoming = Serial.read();
 
@@ -71,21 +65,22 @@ void loop() {
       closeGate();
       status = STATUS_WAITING_FOR_NOTE_ON;
     } else if (status == STATUS_WAITING_FOR_NOTE) {
-      // check if incoming is between C2(48) and C5(84)
+      // check if incoming is between C2(MIDI 48) and C5(MIDI 84)
       // if not, revert status to STATUS_WAITING_FOR_NOTE_ON
       if (incoming > 47 && incoming < 85) {
+        // compensate: MIDI note 48 is EDP Link note 0
         note = incoming - 48;
         status = STATUS_WAITING_FOR_VELOCITY;
       } else {
         status = STATUS_WAITING_FOR_NOTE_ON;
       }
     } else if (status == STATUS_WAITING_FOR_VELOCITY) {
-      velocity = incoming;
+      // just ignore the velocity byte
+      // velocity = incoming;
       setNote(note);
       openGate();
-      // accomodate for MIDI running status
+      // wait for the next note to accomodate for MIDI running status
       status = STATUS_WAITING_FOR_NOTE;
     }
   }
-
 }
