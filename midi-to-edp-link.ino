@@ -20,8 +20,6 @@
 # define STATUS_WAITING_FOR_VELOCITY 2
 
 byte status = STATUS_WAITING_FOR_NOTE_ON;
-byte note = 0;
-byte velocity = 0;
 
 void openGate() {
   // set the gate pin HIGH
@@ -69,15 +67,13 @@ void loop() {
       // if not, revert status to STATUS_WAITING_FOR_NOTE_ON
       if (incoming > 47 && incoming < 85) {
         // compensate: MIDI note 48 is EDP Link note 0
-        note = incoming - 48;
+        setNote(incoming - 48);
         status = STATUS_WAITING_FOR_VELOCITY;
       } else {
         status = STATUS_WAITING_FOR_NOTE_ON;
       }
     } else if (status == STATUS_WAITING_FOR_VELOCITY) {
       // just ignore the velocity byte
-      // velocity = incoming;
-      setNote(note);
       openGate();
       // wait for the next note to accomodate for MIDI running status
       status = STATUS_WAITING_FOR_NOTE;
